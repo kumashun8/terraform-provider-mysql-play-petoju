@@ -435,5 +435,126 @@ S3　backendはencryptをサポートしているので、これを使うのが�
 
 > The S3 backend supports encryption at rest when the encrypt option is enabled. IAM policies and logging can be used to identify any invalid access. Requests for the state go over a TLS connection.
 
-
 https://developer.hashicorp.com/terraform/language/state/sensitive-data
+
+## 3. driftの確認
+
+手動でgrantを変更して、terraform planを実行してみる。
+
+```sql
+mysql> SHOW GRANTS FOR ruanb;
++---------------------------------------------------+
+| Grants for ruanb@%                                |
++---------------------------------------------------+
+| GRANT USAGE ON *.* TO `ruanb`@`%`                 |
+| GRANT SELECT, UPDATE ON `foobar`.* TO `ruanb`@`%` |
++---------------------------------------------------+
+2 rows in set (0.00 sec)
+
+mysql> GRANT DELETE ON `foobar`.* TO `ruanb`;
+Query OK, 0 rows affected (0.01 sec)
+
+mysql> SHOW GRANTS FOR ruanb;
++-----------------------------------------------------------+
+| Grants for ruanb@%                                        |
++-----------------------------------------------------------+
+| GRANT USAGE ON *.* TO `ruanb`@`%`                         |
+| GRANT SELECT, UPDATE, DELETE ON `foobar`.* TO `ruanb`@`%` |
++-----------------------------------------------------------+
+2 rows in set (0.00 sec)
+
+``` 
+
+すでにtable指定のgrantがあるので、terraform planで差分が出る。
+
+```shell
+❯ tf plan
+mysql_database.user_db: Refreshing state... [id=foobar]
+random_password.user_password: Refreshing state... [id=none]
+mysql_user.user_id: Refreshing state... [id=ruanb@%]
+mysql_grant.user_id: Refreshing state... [id=ruanb@%:`foobar`]
+
+Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
+  ~ update in-place
+
+Terraform will perform the following actions:
+
+  # mysql_grant.user_id will be updated in-place
+  ~ resource "mysql_grant" "user_id" {
+        id         = "ruanb@%:`foobar`"
+      ~ privileges = [
+          - "DELETE",
+            # (2 unchanged elements hidden)
+        ]
+        # (7 unchanged attributes hidden)
+    }
+
+Plan: 0 to add, 1 to change, 0 to destroy.
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+Note: You didn't use the -out option to save this plan, so Terraform can't guarantee to take exactly these actions if you run "terraform apply" now.
+
+```
+
+Applyして相殺してみる。
+
+```
+Apply complete! Resources: 0 added, 1 changed, 0 destroyed.
+```
+
+```sql
+mysql> SHOW GRANTS FOR ruanb;
++---------------------------------------------------+
+| Grants for ruanb@%                                |
++---------------------------------------------------+
+| GRANT USAGE ON *.* TO `ruanb`@`%`                 |
+| GRANT SELECT, UPDATE ON `foobar`.* TO `ruanb`@`%` |
++---------------------------------------------------+
+2 rows in set (0.00 sec)
+
+```
+
+table指定がない、つまりそもそも定義のないgrantをいじるとどうなるか。
+
+```sql
+mysql> SHOW GRANTS FOR ruanb;
++---------------------------------------------------+
+| Grants for ruanb@%                                |
++---------------------------------------------------+
+| GRANT USAGE ON *.* TO `ruanb`@`%`                 |
+| GRANT SELECT, UPDATE ON `foobar`.* TO `ruanb`@`%` |
++---------------------------------------------------+
+2 rows in set (0.00 sec)
+
+mysql> GRANT SELECT ON *.* TO `ruanb`;
+Query OK, 0 rows affected (0.01 sec)
+
+mysql> SHOW GRANTS FOR ruanb;
++---------------------------------------------------+
+| Grants for ruanb@%                                |
++---------------------------------------------------+
+| GRANT SELECT ON *.* TO `ruanb`@`%`                |
+| GRANT SELECT, UPDATE ON `foobar`.* TO `ruanb`@`%` |
++---------------------------------------------------+
+2 rows in set (0.00 sec)
+
+mysql>
+```
+
+何も出ない。それはそう。
+
+```shell
+❯ tf plan
+mysql_database.user_db: Refreshing state... [id=foobar]
+random_password.user_password: Refreshing state... [id=none]
+mysql_user.user_id: Refreshing state... [id=ruanb@%]
+mysql_grant.user_id: Refreshing state... [id=ruanb@%:`foobar`]
+
+No changes. Your infrastructure matches the configuration.
+
+Terraform has compared your real infrastructure against your configuration and found no differences, so no changes are needed.
+
+```
+
+このあとimportを試すので、それができるならそれほど困ることはなさそう。
