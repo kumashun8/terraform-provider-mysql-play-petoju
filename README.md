@@ -426,3 +426,14 @@ https://registry.terraform.io/providers/icy/mysql/latest/docs/resources/user
 > result (String, Sensitive) The generated random string.
 
 password本体なので当然センシティブな値が入っている。
+https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password#read-only
+
+---
+
+ということでremote stateにセンシティブなデータが入ることになるので、暗号化が必要。
+S3　backendはencryptをサポートしているので、これを使うのが良さそう。
+
+> The S3 backend supports encryption at rest when the encrypt option is enabled. IAM policies and logging can be used to identify any invalid access. Requests for the state go over a TLS connection.
+
+
+https://developer.hashicorp.com/terraform/language/state/sensitive-data
