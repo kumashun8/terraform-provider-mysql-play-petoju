@@ -7,7 +7,7 @@ https://ruan.dev/blog/2023/07/15/how-to-use-the-mysql-terraform-provider を動�
 書いてあるとおりapplyしてdatabase, userを作ってログインしてみる。
 passwordのrotateが簡単にできるのは便利。
 
-```
+```shell
 ❯ docker exec -it mysql mysql -u root -prootpassword -e 'show databases;'
 mysql: [Warning] Using a password on the command line interface can be insecure.
 +--------------------+
@@ -43,7 +43,7 @@ mysql: [Warning] Using a password on the command line interface can be insecure.
 
 純粋にtf state showで見てみる。
 
-```
+```shell
 ❯ tf state list
 mysql_database.user_db
 mysql_grant.user_id
@@ -425,7 +425,7 @@ https://registry.terraform.io/providers/icy/mysql/latest/docs/resources/user
 
 > result (String, Sensitive) The generated random string.
 
-password本体なので当然センシティブな値が入っている。
+password本体なので当然センシティブな値が入っている。  
 https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password#read-only
 
 ---
@@ -584,7 +584,7 @@ mysql>
 
 ### user
 
-import対応している。　
+import対応している。  
 https://registry.terraform.io/providers/petoju/mysql/latest/docs/resources/user#import
 
 ```hcl
@@ -682,7 +682,7 @@ mysql>
 
 ### grant
 
-こちらもimport対応済み。
+こちらもimport対応済み。  
 https://registry.terraform.io/providers/petoju/mysql/latest/docs/resources/grant#import
 
 importのkeyには
