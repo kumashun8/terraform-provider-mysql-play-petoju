@@ -437,7 +437,7 @@ S3　backendはencryptをサポートしているので、これを使うのが�
 
 https://developer.hashicorp.com/terraform/language/state/sensitive-data
 
-### driftの確認
+## 3. driftの確認
 
 手動でgrantを変更して、terraform planを実行してみる。
 
