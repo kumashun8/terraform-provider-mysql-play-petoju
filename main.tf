@@ -32,3 +32,40 @@ resource "mysql_grant" "user_id" {
     mysql_user.user_id
   ]
 }
+
+# imported
+import {
+  to = mysql_user.user_hoge
+  id = "hoge@%"
+}
+
+resource "mysql_user" "user_hoge" {
+  provider           = mysql.local
+  user               = "hoge"
+  host               = "%"
+  plaintext_password = random_password.hoge_password.result
+}
+
+import {
+  to = mysql_grant.user_hoge
+  id = "hoge@%@foobar@*"
+
+}
+
+resource "mysql_grant" "user_hoge" {
+  provider   = mysql.local
+  user       = "hoge"
+  host       = "%"
+  database   = var.database_name
+  privileges = ["SELECT"]
+}
+
+resource "random_password" "hoge_password" {
+  length           = 24
+  special          = true
+  min_special      = 2
+  override_special = "!#$%&()*+_-=[]{}<>:?"
+  keepers = {
+    password_version = var.password_version
+  }
+}

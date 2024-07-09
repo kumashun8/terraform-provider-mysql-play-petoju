@@ -6,3 +6,8 @@ output "password" {
   sensitive = true
   value     = random_password.user_password.result
 }
+
+output "password_hoge" {
+  sensitive = true
+  value     = random_password.hoge_password.result
+}

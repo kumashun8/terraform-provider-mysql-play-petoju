@@ -558,3 +558,415 @@ Terraform has compared your real infrastructure against your configuration and f
 ```
 
 このあとimportを試すので、それができるならそれほど困ることはなさそう。
+
+## 4. import
+
+user, grantそれぞれのimportを試す。
+
+```sql
+mysql> CREATE USER hoge IDENTIFIED BY 'hogehoge';
+Query OK, 0 rows affected (0.01 sec)
+
+mysql> GRANT SELECT ON `foobar`.* TO `hoge`;
+Query OK, 0 rows affected (0.01 sec)
+
+mysql> SHOW GRANTS FOR hoge;
++------------------------------------------+
+| Grants for hoge@%                        |
++------------------------------------------+
+| GRANT USAGE ON *.* TO `hoge`@`%`         |
+| GRANT SELECT ON `foobar`.* TO `hoge`@`%` |
++------------------------------------------+
+2 rows in set (0.00 sec)
+
+mysql>
+```
+
+### user
+
+import対応している。　
+https://registry.terraform.io/providers/petoju/mysql/latest/docs/resources/user#import
+
+```hcl
+import {
+  to = mysql_user.user_hoge
+  id = "hoge@%"
+}
+
+resource "mysql_user" "user_hoge" {
+  provider = mysql.local
+  user     = "hoge"
+  host     = "%"
+}
+```
+
+```shell
+❯ tf plan
+random_password.user_password: Refreshing state... [id=none]
+mysql_user.user_hoge: Preparing import... [id=hoge@%]
+mysql_database.user_db: Refreshing state... [id=foobar]
+mysql_user.user_id: Refreshing state... [id=ruanb@%]
+mysql_user.user_hoge: Refreshing state... [id=hoge@%]
+mysql_grant.user_id: Refreshing state... [id=ruanb@%:`foobar`]
+
+Terraform will perform the following actions:
+
+  # mysql_user.user_hoge will be imported
+    resource "mysql_user" "user_hoge" {
+        auth_plugin        = "caching_sha2_password"
+        auth_string_hashed = (sensitive value)
+        host               = "%"
+        id                 = "hoge@%"
+        tls_option         = "NONE"
+        user               = "hoge"
+    }
+
+Plan: 1 to import, 0 to add, 0 to change, 0 to destroy.
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+Note: You didn't use the -out option to save this plan, so Terraform can't guarantee to take exactly these actions if you run "terraform apply" now.
+
+❯ tf apply -auto-approve
+mysql_user.user_hoge: Preparing import... [id=hoge@%]
+mysql_database.user_db: Refreshing state... [id=foobar]
+random_password.user_password: Refreshing state... [id=none]
+mysql_user.user_hoge: Refreshing state... [id=hoge@%]
+mysql_user.user_id: Refreshing state... [id=ruanb@%]
+mysql_grant.user_id: Refreshing state... [id=ruanb@%:`foobar`]
+
+Terraform will perform the following actions:
+
+  # mysql_user.user_hoge will be imported
+    resource "mysql_user" "user_hoge" {
+        auth_plugin        = "caching_sha2_password"
+        auth_string_hashed = (sensitive value)
+        host               = "%"
+        id                 = "hoge@%"
+        tls_option         = "NONE"
+        user               = "hoge"
+    }
+
+Plan: 1 to import, 0 to add, 0 to change, 0 to destroy.
+mysql_user.user_hoge: Importing... [id=hoge@%]
+mysql_user.user_hoge: Import complete [id=hoge@%]
+
+Apply complete! Resources: 1 imported, 0 added, 0 changed, 0 destroyed.
+
+Outputs:
+
+password = <sensitive>
+user = "ruanb"
+
+```
+
+Apply成功。引き続きloginもできる。
+
+```shell
+❯ mysql -h 127.0.0.1 -u hoge -P 23306 -phogehoge
+mysql: [Warning] Using a password on the command line interface can be insecure.
+Welcome to the MySQL monitor.  Commands end with ; or \g.
+Your MySQL connection id is 47
+Server version: 8.0.38 MySQL Community Server - GPL
+
+Copyright (c) 2000, 2024, Oracle and/or its affiliates.
+
+Oracle is a registered trademark of Oracle Corporation and/or its
+affiliates. Other names may be trademarks of their respective
+owners.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+mysql>
+```
+
+### grant
+
+こちらもimport対応済み。
+https://registry.terraform.io/providers/petoju/mysql/latest/docs/resources/grant#import
+
+importのkeyには
+
+```
+ユーザー名@ホスト@データベース名@テーブル名
+```
+
+の形式で指定する。
+
+```hcl
+import {
+  to = mysql_grant.user_hoge
+  id = "hoge@%@foobar@*"
+
+}
+
+resource "mysql_grant" "user_hoge" {
+  provider   = mysql.local
+  user       = "hoge"
+  host       = "%"
+  database   = var.database_name
+  privileges = ["SELECT"]
+}
+```
+
+```shell
+❯ tf plan
+mysql_grant.user_hoge: Preparing import... [id=hoge@%@foobar@*]
+mysql_database.user_db: Refreshing state... [id=foobar]
+mysql_user.user_hoge: Refreshing state... [id=hoge@%]
+random_password.user_password: Refreshing state... [id=none]
+mysql_grant.user_hoge: Refreshing state... [id=hoge@%:`foobar`]
+mysql_user.user_id: Refreshing state... [id=ruanb@%]
+mysql_grant.user_id: Refreshing state... [id=ruanb@%:`foobar`]
+
+Terraform will perform the following actions:
+
+  # mysql_grant.user_hoge will be imported
+    resource "mysql_grant" "user_hoge" {
+        database   = "foobar"
+        grant      = false
+        host       = "%"
+        id         = "hoge@%:`foobar`"
+        privileges = [
+            "SELECT",
+        ]
+        roles      = []
+        table      = "*"
+        tls_option = "NONE"
+        user       = "hoge"
+    }
+
+Plan: 1 to import, 0 to add, 0 to change, 0 to destroy.
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+Note: You didn't use the -out option to save this plan, so Terraform can't guarantee to take exactly these actions if you run "terraform apply" now.
+
+❯ tf apply -auto-approve
+mysql_grant.user_hoge: Preparing import... [id=hoge@%@foobar@*]
+mysql_database.user_db: Refreshing state... [id=foobar]
+mysql_user.user_hoge: Refreshing state... [id=hoge@%]
+random_password.user_password: Refreshing state... [id=none]
+mysql_grant.user_hoge: Refreshing state... [id=hoge@%:`foobar`]
+mysql_user.user_id: Refreshing state... [id=ruanb@%]
+mysql_grant.user_id: Refreshing state... [id=ruanb@%:`foobar`]
+
+Terraform will perform the following actions:
+
+  # mysql_grant.user_hoge will be imported
+    resource "mysql_grant" "user_hoge" {
+        database   = "foobar"
+        grant      = false
+        host       = "%"
+        id         = "hoge@%:`foobar`"
+        privileges = [
+            "SELECT",
+        ]
+        roles      = []
+        table      = "*"
+        tls_option = "NONE"
+        user       = "hoge"
+    }
+
+Plan: 1 to import, 0 to add, 0 to change, 0 to destroy.
+mysql_grant.user_hoge: Importing... [id=hoge@%@foobar@*]
+mysql_grant.user_hoge: Import complete [id=hoge@%@foobar@*]
+
+Apply complete! Resources: 1 imported, 0 added, 0 changed, 0 destroyed.
+
+Outputs:
+
+password = <sensitive>
+user = "ruanb"
+
+```
+
+こちらもapply成功。
+
+### password
+
+importというか、importしたuserのpasswordを変更したい。
+
+```diff
+ resource "mysql_user" "user_hoge" {
+   provider           = mysql.local
+   user               = "hoge"
+   host               = "%"
++  plaintext_password = random_password.hoge_password.result
+ }
+
++ resource "random_password" "hoge_password" {
++   length           = 24
++   special          = true
++   min_special      = 2
++   override_special = "!#$%&()*+_-=[]{}<>:?"
++   keepers = {
++     password_version = var.password_version
++   }
++ }
+
+```
+
+```shell
+❯ tf plan
+mysql_database.user_db: Refreshing state... [id=foobar]
+mysql_grant.user_hoge: Refreshing state... [id=hoge@%:`foobar`]
+random_password.user_password: Refreshing state... [id=none]
+mysql_user.user_hoge: Refreshing state... [id=hoge@%]
+mysql_user.user_id: Refreshing state... [id=ruanb@%]
+mysql_grant.user_id: Refreshing state... [id=ruanb@%:`foobar`]
+
+Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
+  + create
+  ~ update in-place
+
+Terraform will perform the following actions:
+
+  # mysql_user.user_hoge will be updated in-place
+  ~ resource "mysql_user" "user_hoge" {
+        id                 = "hoge@%"
+      + plaintext_password = (sensitive value)
+        # (5 unchanged attributes hidden)
+    }
+
+  # random_password.hoge_password will be created
+  + resource "random_password" "hoge_password" {
+      + bcrypt_hash      = (sensitive value)
+      + id               = (known after apply)
+      + keepers          = {
+          + "password_version" = "0"
+        }
+      + length           = 24
+      + lower            = true
+      + min_lower        = 0
+      + min_numeric      = 0
+      + min_special      = 2
+      + min_upper        = 0
+      + number           = true
+      + numeric          = true
+      + override_special = "!#$%&()*+_-=[]{}<>:?"
+      + result           = (sensitive value)
+      + special          = true
+      + upper            = true
+    }
+
+Plan: 1 to add, 1 to change, 0 to destroy.
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+Note: You didn't use the -out option to save this plan, so Terraform can't guarantee to take exactly these actions if you run "terraform apply" now.
+
+```
+
+Planは出る。いけるかな...?
+
+```shell
+❯ tf apply -auto-approve
+mysql_database.user_db: Refreshing state... [id=foobar]
+mysql_grant.user_hoge: Refreshing state... [id=hoge@%:`foobar`]
+random_password.user_password: Refreshing state... [id=none]
+mysql_user.user_hoge: Refreshing state... [id=hoge@%]
+mysql_user.user_id: Refreshing state... [id=ruanb@%]
+mysql_grant.user_id: Refreshing state... [id=ruanb@%:`foobar`]
+
+Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
+  + create
+  ~ update in-place
+
+Terraform will perform the following actions:
+
+  # mysql_user.user_hoge will be updated in-place
+  ~ resource "mysql_user" "user_hoge" {
+        id                 = "hoge@%"
+      + plaintext_password = (sensitive value)
+        # (5 unchanged attributes hidden)
+    }
+
+  # random_password.hoge_password will be created
+  + resource "random_password" "hoge_password" {
+      + bcrypt_hash      = (sensitive value)
+      + id               = (known after apply)
+      + keepers          = {
+          + "password_version" = "0"
+        }
+      + length           = 24
+      + lower            = true
+      + min_lower        = 0
+      + min_numeric      = 0
+      + min_special      = 2
+      + min_upper        = 0
+      + number           = true
+      + numeric          = true
+      + override_special = "!#$%&()*+_-=[]{}<>:?"
+      + result           = (sensitive value)
+      + special          = true
+      + upper            = true
+    }
+
+Plan: 1 to add, 1 to change, 0 to destroy.
+random_password.hoge_password: Creating...
+random_password.hoge_password: Creation complete after 0s [id=none]
+mysql_user.user_hoge: Modifying... [id=hoge@%]
+mysql_user.user_hoge: Modifications complete after 0s [id=hoge@%]
+
+Apply complete! Resources: 1 added, 1 changed, 0 destroyed.
+
+Outputs:
+
+password = <sensitive>
+user = "ruanb"
+
+```
+
+Applyも成功。新しいpasswordをoutputさせて、loginしてみる。
+
+```
+output "password_hoge" {
+  sensitive = true
+  value     = random_password.hoge_password.result
+}
+```
+
+```shell
+❯ tf apply -auto-approve
+mysql_database.user_db: Refreshing state... [id=foobar]
+mysql_grant.user_hoge: Refreshing state... [id=hoge@%:`foobar`]
+random_password.hoge_password: Refreshing state... [id=none]
+random_password.user_password: Refreshing state... [id=none]
+mysql_user.user_id: Refreshing state... [id=ruanb@%]
+mysql_user.user_hoge: Refreshing state... [id=hoge@%]
+mysql_grant.user_id: Refreshing state... [id=ruanb@%:`foobar`]
+
+Changes to Outputs:
+  + password_hoge = (sensitive value)
+
+You can apply this plan to save these new output values to the Terraform state, without changing any real infrastructure.
+
+Apply complete! Resources: 0 added, 0 changed, 0 destroyed.
+
+Outputs:
+
+password = <sensitive>
+password_hoge = <sensitive>
+user = "ruanb"
+
+❯ DBPASS=$(terraform output -raw password_hoge)
+
+❯ docker exec -it mysql mysql -u hoge -p$DBPASS -e 'show databases;'
+mysql: [Warning] Using a password on the command line interface can be insecure.
++--------------------+
+| Database           |
++--------------------+
+| foobar             |
+| information_schema |
+| performance_schema |
++--------------------+
+
+❯ docker exec -it mysql mysql -u hoge -phogehoge -e 'show databases;'
+mysql: [Warning] Using a password on the command line interface can be insecure.
+ERROR 1045 (28000): Access denied for user 'hoge'@'localhost' (using password: YES)
+
+```
+
+Loginできた!! 最初に手動で設定したpasswordでloginできないことも確認。  
+ここまでできれば、importで困ることはなさそう。
