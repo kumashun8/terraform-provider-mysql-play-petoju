@@ -33,39 +33,33 @@ resource "mysql_grant" "user_id" {
   ]
 }
 
-# imported
-import {
-  to = mysql_user.user_hoge
-  id = "hoge@%"
-}
-
-resource "mysql_user" "user_hoge" {
-  provider           = mysql.local
-  user               = "hoge"
-  host               = "%"
-  plaintext_password = random_password.hoge_password.result
-}
-
-import {
-  to = mysql_grant.user_hoge
-  id = "hoge@%@foobar@*"
-
-}
-
-resource "mysql_grant" "user_hoge" {
+resource "mysql_grant" "user_proc" {
   provider   = mysql.local
-  user       = "hoge"
+  user       = var.database_username
   host       = "%"
-  database   = var.database_name
-  privileges = ["SELECT"]
+  database   = "PROCEDURE ${var.database_name}"
+  table      = "proc_sleep"
+  privileges = ["EXECUTE"]
+
+  depends_on = [
+    mysql_user.user_id
+  ]
 }
 
-resource "random_password" "hoge_password" {
-  length           = 24
-  special          = true
-  min_special      = 2
-  override_special = "!#$%&()*+_-=[]{}<>:?"
-  keepers = {
-    password_version = var.password_version
-  }
+resource "mysql_grant" "user_proc2" {
+  provider   = mysql.local
+  user       = var.database_username
+  host       = "%"
+  database   = "PROCEDURE ${var.database_name}"
+  table      = "proc_sleep2"
+  privileges = ["EXECUTE"]
+
+  depends_on = [
+    mysql_user.user_id
+  ]
+}
+
+import {
+  id = "ruanb@*@foobar@proc_sleep2"
+  to = mysql_grant.user_proc2
 }

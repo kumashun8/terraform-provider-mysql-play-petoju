@@ -1,11 +1,24 @@
 version: "3.8"
 
 services:
-  mysql:
-    image: mysql:8.0
-    container_name: mysql
+  mysql8.0:
+    image: mysql:8.0.28
+    platform: linux/x86_64
+    container_name: mysql8_0
+    command: --server-id=1 --log-bin=mysql-bin --binlog-format=row
     ports:
-      - "23306:3306"
+      - "3307:3306"
+    environment:
+      - MYSQL_DATABASE=sample
+      - MYSQL_ROOT_PASSWORD=rootpassword
+
+  mysql5.7:
+    image: mysql:5.7
+    platform: linux/x86_64
+    container_name: mysql5_7
+    command: --server-id=2 --log-bin=mysql-bin --binlog-format=mixed
+    ports:
+      - "3308:3306"
     environment:
       - MYSQL_DATABASE=sample
       - MYSQL_ROOT_PASSWORD=rootpassword
